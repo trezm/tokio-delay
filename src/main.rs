@@ -9,7 +9,6 @@ use tokio::net::TcpListener;
 use tokio::stream::StreamExt;
 
 async fn hello(_: Request<Body>) -> Result<Response<Body>, Infallible> {
-    println!("printing hello");
     Ok(Response::new(Body::from("Hello World!")))
 }
 
@@ -21,6 +20,15 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
+
+    let server = Builder::new(
+        hyper::server::accept::from_stream(rx),
+        Http::new(),
+    )
+    .serve(make_svc);
+
+    println!("Listening...");
+    
     let addr = ("127.0.0.1", 3000)
         .to_socket_addrs()
         .unwrap()
@@ -30,26 +38,19 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut listener = TcpListener::bind(&addr).await.unwrap();
     let mut incoming = listener.incoming();
 
+    tokio::spawn(async move {
+	let _ = server.await;
+    });
+    
     while let Some(item) = incoming.next().await {
         let tx = tx.clone();
 
         tokio::spawn(async move {
             tokio::time::delay_for(std::time::Duration::from_millis(5000)).await;
 
-            println!("delay done");
             let _ = tx.send(item);
         });
     }
-
-    let server = Builder::new(
-        hyper::server::accept::from_stream(rx),
-        Http::new(),
-    )
-    .serve(make_svc);
-
-    println!("Listening...");
-
-    server.await?;
 
     Ok(())
 }
