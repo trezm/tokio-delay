@@ -6,10 +6,10 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{Body, Request, Response};
 use std::net::ToSocketAddrs;
 use tokio::net::TcpListener;
-use tokio::net::TcpStream;
 use tokio::stream::StreamExt;
 
 async fn hello(_: Request<Body>) -> Result<Response<Body>, Infallible> {
+    println!("printing hello");
     Ok(Response::new(Body::from("Hello World!")))
 }
 
@@ -31,10 +31,13 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut incoming = listener.incoming();
 
     while let Some(item) = incoming.next().await {
-        tokio::spawn(async {
+        let tx = tx.clone();
+
+        tokio::spawn(async move {
             tokio::time::delay_for(std::time::Duration::from_millis(5000)).await;
 
-            tx.send(item);
+            println!("delay done");
+            let _ = tx.send(item);
         });
     }
 
